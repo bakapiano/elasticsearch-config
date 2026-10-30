@@ -64,10 +64,19 @@ app.get('/', function(req, res) {
             },
             {
               match: {
-                content: {
+                h3: {
                   query: keyword,
                   minimum_should_match: "75%",
                   boost: 2
+                }
+              }
+            },
+            {
+              match: {
+                content: {
+                  query: keyword,
+                  minimum_should_match: "75%",
+                  boost: 1
                 }
               }
             },

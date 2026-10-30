@@ -49,18 +49,30 @@ function getContent(filename, data) {
     file = String(fs.readFileSync(`/home/ubuntu/OI-wiki/docs/` + filename));
   } catch (e) {
     console.error(`Error reading file ${filename}:`, e);
-    return ['', '', ''];
+    return ['', '', '', ''];
   }
 
   const h1reg = /^# .+$/gm, h2reg = /^## .+$/gm, authorreg = /author:[^\n]*/gm;
   const lines = file.split('\n').filter(e => !e.match(authorreg));
-  let others = lines.filter((e) => !e.match(h1reg) && !e.match(h2reg));
+  // Use Markdown nodes so ### inside a code block is not indexed as a heading.
+  // Match unindented ATX headings, consistently with the existing h1/h2 fields.
+  const h3Lines = new Set();
+  function collectH3(node) {
+    if (node.type === 'heading' && node.depth === 3 && node.position) {
+      const line = node.position.start.line - 1;
+      if (/^### .+$/m.test(lines[line])) h3Lines.add(line);
+    }
+    (node.children || []).forEach(collectH3);
+  }
+  collectH3(remark.parse(lines.join('\n')));
+  let others = lines.filter((e, i) => !e.match(h1reg) && !e.match(h2reg) && !h3Lines.has(i));
   let title = lines[0] && lines[0].match(h1reg) ?
     lines[0].replace('# ', '') : '';
   traversalArticle(data['nav'], (key, value) => {
     if (value == filename) title = key;
   });
   const h2 = lines.filter(e => e.match(h2reg)).map(e => e.replace(/^## /, ''));
+  const h3 = [...h3Lines].map(i => lines[i].replace(/^### /, ''));
 
   others = others.map(e => e.replace(/^##+ /, ''));
 
@@ -76,7 +88,7 @@ function getContent(filename, data) {
 
   others.replace()
 
-  return [title, others, h2.join('\n')];
+  return [title, others, h2.join('\n'), h3.join('\n')];
 }
 
 /**
@@ -91,12 +103,13 @@ function updateContent(modified, removed) {
   let ops = [];
   modified.forEach((filename) => {
     ops.push({ index: { _index: 'oiwiki', _type: 'article', _id: filename } });
-    let [title, article, h2] = getContent(filename, data);
+    let [title, article, h2, h3] = getContent(filename, data);
     ops.push({
       title: title,
       content: article,
       url: '/' + filename.replace('/index.md', '/').replace('.md', '/'),
       h2: h2,
+      h3: h3,
     });
   });
   removed.forEach((filename) => {

@@ -6,7 +6,8 @@
   "scripts": {
     "serve": "node api/main.js",
     "webhook": "node webhook/index.js",
-    "test": "node webhook/test.js"
+    "test": "node webhook/test.js",
+    "test:unit": "node test/search-fields.js"
   },
   "keywords": [
     "OI",
